@@ -28,5 +28,7 @@ GDCdownload(rna.query, method = "api", files.per.chunk = 10)
 clinical.query <- GDCquery(project = "TCGA-OV", 
                   data.category = "Clinical")
 GDCdownload(clinical.query)
-clinical <- GDCprepare_clinic(query, clinical.info = "patient")
-clinical <- GDCquery_clinic(project = "TCGA-OV", type = "clinical")
+
+#Loads clinical data into R. 
+#TODO: Move to another script
+#clinical <- GDCprepare_clinic(query, clinical.info = "patient")
