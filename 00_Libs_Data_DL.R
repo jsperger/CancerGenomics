@@ -22,6 +22,16 @@ rna.query <- GDCquery(project = "TCGA-OV",
                   legacy = TRUE)
 GDCdownload(rna.query, method = "api", files.per.chunk = 10)
 
+### Download DNA Methylation Data
+# Function automatically will check if the files have been downloaded
+#Download Size is ~210MB
+
+methyl.query <- GDCquery(project = c("TCGA-OV"),
+                  data.category = "DNA methylation",
+                  platform = "Illumina Human Methylation 450",
+                  legacy = TRUE)
+GDCdownload(methyl.query, method = "api", files.per.chunk = 10)
+
 ### Download Clinical Data
 ### Function automatically will check if the files have been downloaded
 #Download Size is ~32MB
