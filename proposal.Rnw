@@ -1,0 +1,81 @@
+\documentclass{article}
+\author{
+Courtney Vaughn, Isaac Robson, Kentaro Hoffman, and John Sperger
+%  Hoffman, Kentaro \and
+%  Sperger, John  \and
+%  Robson, Isaac  \and
+%  Vaughn, Courtney 
+}
+\title{Cancer Genomics - Analysis Plan}
+\date{March $19^{\mathrm{th}}$, 2018}
+\usepackage{booktabs}
+\usepackage{float}
+\begin{document}
+\maketitle
+\SweaveOpts{concordance=TRUE}
+
+\subsection{Introduction}
+
+Serous Ovarian Cancer is serious. 
+
+Past work by The Cancer Genome Atlas Research Network ``delineated four ovarian cancer transcriptional subtypes, three microRNA subtypes, four promoter methylation subtypes and a transcriptional
+signature associated with survival duration'' \cite{cancer2011integrated}.
+
+The clinical data includes both overall survival and progression-free survival. 
+
+As an introduction, the data we have relates to patient response to Platinum-based chemotherapies (survival time with treatment, but all patients are treated basically the same way, longer survival time means the patients responded better to the drug). Platinums are some of the most commonly used chemotherapies and are used on most solid tumors.  They are unfortunately very toxic though and can cause kidney failure, deafness, etc... Platinum based chemotherapies work by damaging DNA. When DNA is replicated, the replication machinery can recognize damage and will signal to the cell that there is stress so the cell goes into programed cell death (apoptosis).  The damage can also be repaired or it can be ignored and the DNA can be replicated over it (often leading to mutations).  DNA is double stranded and made up of nucleic acids (also referred to as bases), most platinum induced damage links two bases on the same strand of DNA (intrastrand crosslinks); this damage can be repaired by a process known as Nucleotide Excision Repair. A small amount of the damage (about 1\%) links bases between two strands (interstrand crosslinks). There is a lot of talk in the field about how the latter damage may be the more toxic damage.  Interstrand crosslinks are probably repaired using double strand break methods.  As of right now, the only definite known mechanism of resistance to platinums are drug transporters (less drug in cell=less damage= less cell death) so which ever question we choose we should probably control for this somehow- I'll talk to Katie about it once we pick a question.
+
+\subsection{Data \& Pre-processing}
+
+\begin{table}[h!] \centering
+  \begin{tabular}{ll} \toprule
+  Data Type & Cases \\
+  \hline
+  Clinical & 587 \\
+  DNA Methylation & 602 \\
+  Copy Number Variation & 573 \\
+  RNA-Seq & 376 \\
+  \bottomrule
+  \end{tabular}
+\caption{TCGA Ovarian Data Summary}
+\end{table}
+
+Restrict the sample to only those with clinical data
+
+There are ~21,000 unique genes expressed in the RNA-Seq data. Looking at a few other papers, it seems like they come up with a candidate list of say 500 to a few thousand and then run clustering with that candidate list instead of all the genes. 
+
+\subsection{Planned Analysis 1 - Hierarchical Clustering}
+
+First going to do hierarchical clustering with the (? DNA Methyltion, RNA-seq?) data \cite{eisen_cluster_1998}
+
+Purpose: Sanity check ourselves and make sure we can recreate the clusters in the Nature paper \cite{cancer2011integrated}
+
+\subsection{Planned Analysis 2 - Mining differential correlation} 
+Differential Corrrelation Mining (DCM) is a method for identifying sets of variables where the average pairwise correlation between variables in a set is higher under one sample condition
+than the other developed by Kelly Bodwin, Kai Zhang, and Andrew Nobel ~\cite{difcor2016}. We will split the DNA Methylation data into clusters based on the subgroups identified in Analysis 1 and run DCM to identify sets of differentially correlated genes across subtypes. 
+  After identifying these sets of differentially correlated genes, 
+Would be neat to see if the gene sets identified by running DCM on the methylation data can predict differences in mRNA expression level between subtypes. My very hazy understanding and comically simplifyied understanding is DNA Methylation -> mRNA -> protein stuff 
+
+Limitation: We don't have healthy cell data, and so DCM can only tell us new information about already discovered clusters. Ideally, we'd have cases and controls and run DCM on case vs control to try and see if there are different potential clusterings. 
+
+
+%\subsection{Planned Analysis 3 - Survival}
+%What will our predictors be?
+%70/30 Train/Test Split
+%Method: Cox model? SVM for survival?
+
+\subsection{How does expression of DNA damage response factors influence survival?}
+For this, we can make clusters based on RNA levels of genes involved in DNA damage response and then look to see if there is a difference in survival between our clusters to determine of there is a role for repair/ other damage response pathways in drug effectiveness. if there is, then we can follow up to see which repair pathways are most important to drug response. This is an interesting question since people often assume repair is a mechanism of resistance to platinums but there really isn't any strong evidence for this.
+
+\subsection{Does the immune system play a role in response to platinums? and if so, which immune pathways improve/reduce survival?}
+
+We know that there are synergistic effects between platinums and immune inhibitors but the relationship between these has not been fleshed out fully.  We can cluster samples based on immune response related genes and then see if there is a difference in survival based on these. The follow-up we can look at which pathways may be associated with decreased response to platinums and see if there are drugs that modulate those. The original TCGA paper did define a subtype of ovarian cancer as "immune responsive" so we'll have to make sure we aren't just recreating that subtype. 
+
+\subsection{Can we reproduce microRNA signature as predictors of platinum response?}
+There have been a number of microRNAs implicated in platinum resistance and a few microRNA signatures for predicting response to platinum in other cancers. We can use these lists to see if similar microRNA signatures could predict survival in ovarian as well. (Lots of people are interested in microRNAs right now so understanding their role in treatment response is a hot topic now.  Given that they already looked for which microRNAs correlated with survival in the original ovarian cancer TCGA paper, I'm not sure if we can actually find anything new with this, but I wanted to put it on the list since it is a hot topic)  
+
+
+
+\bibliography{genomics}{}
+\bibliographystyle{plain}
+\end{document}

@@ -7,8 +7,10 @@
 source("https://bioconductor.org/biocLite.R")
 biocLite("TCGAbiolinks")
 biocLite("RTCGAToolbox")
+biocLite("SummarizedExperiment")
 library("TCGAbiolinks")
 library("RTCGAToolbox")
+library("SummarizedExperiment")
 
 ### Download RNA Seq Data
 ### Function automatically will check if the files have been downloaded
