@@ -53,14 +53,9 @@ Differential Corrrelation Mining (DCM) is a method developed by Kelly Bodwin, Ka
 
 
 \subsection{Survival Analysis}
-Kaplan-Meier Survival 
+We will fit Kaplan-Meier Survival curves for each of the DNA damage response subtypes we identify to estimate the unadjusted 
 
-Cox model
-
-Predictive performance and robustness
-
-70/30 Train/Test Split
-Method: Cox model? SVM for survival?
+Next we will fit a Cox proportional hazards model with the DNA damage response subtypes and clinical variables as predictorsto estimate the effect of the DNA damage response subtypes on survival controlling for clinical factors like age. To better understand the predictive accuracy and the robustness of the model, we will split the data into training and test data sets using a 70/30 train/test split and report the prediction error on the test set. 
 
 \subsection{Repair Pathway}
 
