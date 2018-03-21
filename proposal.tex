@@ -47,7 +47,7 @@ There are 376 RNA-Seq samples in the available data for the TCGA-OV project. We 
 \subsection{Identify gene list of DNA damage response genes}
 
 The DNA Damage Response (DDR) gene set was retrieved from the Gene Ontology Consortium.  It contains 830 genes.
-Gene list: http://amigo.geneontology.org/amigo/search/bioentity?q=DNA%20damage%20response
+Gene list: http://amigo.geneontology.org/amigo/search/bioentity?q=DNA\%20damage\%20response
 
 \subsection{Clustering by DNA Damage Response}
   It is assumed that less efficient DNA damage repair will correlate with better outcomes for patients. We will test this hypothesis by exploring the difference in treatment response between tumors cluster by DDR gene expression patterns. We will use differential expression of the 830 DDR genes to create clusters. We will first create a hierarchical clustering as an exploratory analysis, and then will use consensus clustering to select the final number of clusters \cite{monti_consensus_2003}. 
@@ -68,8 +68,6 @@ If there are differences in survival between subgroups we will follow up to see 
 Time permitting, we will apply this same analysis pipeline to investigate immune inhibitors. Ideally this will only involve changing the gene list in subsection 3.2 and rerunning our analyses. 
 
 We know that there are synergistic effects between platinums and immune inhibitors but the relationship between these has not been fleshed out fully.  We can cluster samples based on immune response related genes and then see if there is a difference in survival based on these. The follow-up we can look at which pathways may be associated with decreased response to platinums and see if there are drugs that modulate those. The original TCGA paper did define a subtype of ovarian cancer as "immune responsive" and we can compare if our clustering just sorts according to that subtype or if it suggests additional sub-subtypes. 
-
-
 
 \bibliography{genomics}{}
 \bibliographystyle{plain}
