@@ -9,6 +9,7 @@ biocLite("TCGAbiolinks")
 biocLite("RTCGAToolbox")
 biocLite("SummarizedExperiment")
 biocLite("DESeq")
+biocLite("arrayQualityMetrics")
 library("TCGAbiolinks")
 library("RTCGAToolbox")
 library("SummarizedExperiment")
@@ -47,18 +48,31 @@ rna.seqdat <- GDCprepare(query = rna.query,
 
 # Create a matrix of the RNA-seq data with genes as rows and samples as columns
 full.rna.seq.mat <- assay(rna.seqdat)
-# Write the RNA-Seq data to a matrix
-write.csv(full.rna.seq.mat, file = "full_rna_seq_mat.csv",
-           row.names = TRUE,
-           col.names = TRUE)
 
 ### Subset the RNA-Seq data to include only genes involved in DNA repair 
-dnarep.gene.list <- read.csv("dna_repair_genelist.csv")
-dnarep.mat <- full.rna.seq.mat[dnarep.gene.list$Gene,]
+# Pull the list of genes in the full data set
+full.gene.list <- row.names(full.rna.seq.mat)
+# The gene name format is Name|##### not sure what the numbers mean
+# This splits into separate characters for Name and Number, then just takes the names
+# Ugly code but I forget regular expressions
+gene.list.split <- matrix(unlist(strsplit(full.gene.list, "|", fixed=TRUE)), ncol=2, byrow=TRUE)
+full.gene.names <- gene.list.split[,1]
+# Replace the rownames with just the gene names
+rownames(full.rna.seq.mat) <- full.gene.names
+
+# Write the RNA-Seq data to a matrix
+write.csv(full.rna.seq.mat, file = "full_rna_seq_mat.csv",
+          row.names = TRUE)
+
+# Read in the list of genes associated with DNA Damage Repair
+dnarep.gene.list <- read.csv("dna_repair_genelist.csv", stringsAsFactors = FALSE)
+# Take the genes which appear in the RNA-Seq data
+genes.in.data <- dnarep.gene.list[dnarep.gene.list$Gene %in% rownames(full.rna.seq.mat),]
+dnarep.mat <- full.rna.seq.mat[genes.in.data,]
+
 # Write the RNA-Seq data to a matrix
 write.csv(dnarep.mat, file = "dnarep_mat.csv",
-          row.names = TRUE,
-          col.names = TRUE)
+          row.names = TRUE)
 
 #######################################
 ######### Deprecated ############
