@@ -46,46 +46,29 @@ rna.seqdat <- GDCprepare(query = rna.query,
 
 # Create a matrix of the RNA-seq data with genes as rows and samples as columns
 full.rna.seq.mat <- assay(rna.seqdat)
-
-### Subset the RNA-Seq data to include only genes involved in DNA repair 
-# Pull the list of genes in the full data set
-full.gene.list <- row.names(full.rna.seq.mat)
-# The gene name format is Name|##### not sure what the numbers mean
-# This splits into separate characters for Name and Number, then just takes the names
-# Ugly code but I forget regular expressions
-gene.list.split <- matrix(unlist(strsplit(full.gene.list, "|", fixed=TRUE)), ncol=2, byrow=TRUE)
-full.gene.names <- gene.list.split[,1]
-# Replace the rownames with just the gene names
-rownames(full.rna.seq.mat) <- full.gene.names
+rownames(full.rna.seq.mat) <- rowData(rna.seqdat)$external_gene_name
 
 # Write the RNA-Seq data to a matrix
 write.csv(full.rna.seq.mat, file = "full_rna_seq_mat.csv",
           row.names = TRUE)
 
+### Subset the RNA-Seq data to include only genes involved in DNA repair 
+# Pull the list of genes in the full data set
+gene.names <- rowData(rna.seqdat)$external_gene_name
+
 # Read in the list of genes associated with DNA Damage Repair
-dnarep.gene.list <- read.csv("dna_repair_genelist.csv", stringsAsFactors = FALSE)
+ddr.gene.list <- read.csv("dna_repair_genelist.csv", stringsAsFactors = FALSE)
 # Take the genes which appear in the RNA-Seq data
-genes.in.data <- dnarep.gene.list[dnarep.gene.list$Gene %in% rownames(full.rna.seq.mat),]
-dnarep.mat <- full.rna.seq.mat[genes.in.data,]
+to.keep <- gene.names %in% ddr.gene.list$Gene
+ddr.mat <- full.rna.seq.mat[genes.in.data,]
 
 # Write the RNA-Seq data to a matrix
-write.csv(dnarep.mat, file = "dnarep_mat.csv",
+write.csv(ddr.mat, file = "dnarep_mat.csv",
           row.names = TRUE)
-
-#######################################
-######### Deprecated ############
-#######################################
-### Download DNA Methylation Data
-# Function automatically will check if the files have been downloaded
-#Download Size is ~210MB
-
-#methyl.query <- GDCquery(project = c("TCGA-OV"),
-#                  data.category = "DNA methylation",
-#                  platform = "Illumina Human Methylation 450",
-#                  legacy = TRUE)
-#GDCdownload(methyl.query, method = "api", files.per.chunk = 10)
-
-
+# Gets a list of which DDR Genes appear in the data
+genes.in.data <- ddr.gene.list[ddr.gene.list$Gene %in% rownames(full.rna.seq.mat),]
+write.csv(genes.in.data, file = "ddr.genes.in.data.csv",
+          row.names = TRUE)
 
 #Loads clinical data into R. 
 #TODO: Move to another script
