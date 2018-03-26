@@ -20,14 +20,11 @@ library("SummarizedExperiment")
 #######################################
 ### Download RNA Seq Data
 ### Function automatically will check if the files have been downloaded
-#Download Size is ~130MB
+#Download Size is ~100MB
 rna.query <- GDCquery(project = "TCGA-OV",
-                  data.category = "Gene expression",
-                  data.type = "Gene expression quantification",
-                  #platform = "Illumina HiSeq", 
-                  file.type  = "results",
-                  experimental.strategy = "RNA-Seq",
-                  legacy = TRUE)
+                      data.category = "Transcriptome Profiling",
+                      data.type = "Gene Expression Quantification",
+                      workflow.type = "HTSeq - Counts")
 GDCdownload(rna.query, method = "api", files.per.chunk = 10)
 
 ### Download Clinical Data
