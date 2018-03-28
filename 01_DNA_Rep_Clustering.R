@@ -1,4 +1,5 @@
 ####
+# TODO: Pull in clinical data for specimen collection method
 # TODO: Figure out which normalization method is most appropriate e.g. median,
 #       75th quantile, one of the options from DESeq2
 # TODO: Determine appropriate options for Clustering (complete vs. average), euclidean distance
@@ -12,12 +13,35 @@ library(ConsensusClusterPlus)
 #library(arrayQualityMetrics)
 library(RColorBrewer)
 library(gplots)
+library(pheatmap)
+library("BiocParallel")
 
 #######################################
 ######### Data and Normalization ######
 #######################################
+###### Data input
 dnarep.seq <- read.csv("dnarep_mat.csv", header=TRUE, row.names = 1)
 dnarep.mat <- data.matrix(dnarep.seq)
+#TCGA Barcode
+# https://wiki.nci.nih.gov/display/TCGA/TCGA+barcode
+barcode <- matrix(unlist(strsplit(colnames(dnarep.mat), ".", fixed=TRUE)), ncol=7, byrow = TRUE)
+colnames(barcode) <- c("Project", "TSS", "Participant", "Sample", "Portion", "Plate", "Center")
+#barcode[,c(2,3,7)] <- as.numeric(barcode[,c(2,3,7)])
+barcode <- data.frame(barcode)
+barcode$Participant <- factor(barcode$Participant)
+# Create DeSeq dataset
+dna.desq <- DESeqDataSetFromMatrix(countData = dnarep.mat,
+                                   colData = barcode,
+                                   design = ~ 1)
+
+#Preprocessing
+# Remove genes with <10 reads, Only removes 1 gene
+to.keep <- rowSums(counts(dna.desq)) >= 10
+dna.desq <- dna.desq[to.keep,]
+#dna.desq <- estimateSizeFactors(dna.desq)
+#dna.desq <- estimateDispersions(dna.desq)
+dna.desq <- DESeq(dna.desq, parallel = TRUE, BPPARAM=MulticoreParam(4))
+ddr.res <- results(dna.desq)
 
 # Basic approaches to normalization
 # Median Normalization: New = Obs - median
@@ -26,16 +50,12 @@ dnarep.median.normd <- sweep(dnarep.mat,1, apply(dnarep.mat,1,median,na.rm=T))
 dnarep.75q.normd <- sweep(dnarep.mat,1, apply(dnarep.mat,1,quantile, probs=.75,na.rm=T))
 
 # DESeq2 Based Normalizations
-# Expects integers
-# Open Question: why aren't counts integers?
-dnarep.seq.rounded <- round(dnarep.mat)
-#Create a "Count Data Set" object which is what the DeSeq package expects
-dnarep.cds <- newCountDataSet(dnarep.seq.rounded, 
-                              condition = factor(rep("Untreated", ncol(dnarep.mat))))
-dnarep.cds <- estimateSizeFactors(dnarep.cds)
-#Create matrix of the normalized counts
-dnarep.normd <- counts(dnarep.cds, normalized=TRUE)
+# Normalizes the data according to the regularized logarithm transformation
+# Note: broke R on my laptop. Will have to try running overnight or on the cluster. 
+# ddr.rlog <- rlog(dna.desq)
 
+ddr.vsd <- varianceStabilizingTransformation(dna.desq, blind = FALSE)
+ddr.norm <- normTransform(dna.desq)
 #######################################
 ######### Clustering ######
 #######################################
@@ -70,6 +90,13 @@ dnarep.75q.kmeans <- ConsensusClusterPlus(dnarep.75q.normd,maxK=6,reps=50,pItem=
                                           title="./ConsensusClustering/75qNorm/kmeans",
                                           clusterAlg="km",
                                           distance="euclidean",seed=1262118388.71279,plot="pdf")
+# Consensus Clustering based on median normalized data
+# Hierarchical clustering using pearson correlation
+dnarep.vst.ccres <- ConsensusClusterPlus(assay(vsd),maxK=6,reps=50,pItem=0.8,
+                                         pFeature=1, 
+                                         title="./ConsensusClustering/VST",
+                                         clusterAlg="hc",
+                                         distance="euclidean",seed=1262118388.71279,plot="pdf")
 
 # Item Consensus Plots
 icl.med <- calcICL(dnarep.med.ccres,title="./ConsensusClustering/MedianNorm",plot="pdf")

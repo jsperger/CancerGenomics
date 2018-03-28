@@ -8,6 +8,7 @@ source("https://bioconductor.org/biocLite.R")
 biocLite("TCGAbiolinks")
 biocLite("RTCGAToolbox")
 biocLite("SummarizedExperiment")
+biocLite("BiocParallel")
 biocLite("DESeq2")
 biocLite("arrayQualityMetrics")
 biocLite("ConsensusClusterPlus")
@@ -69,7 +70,3 @@ write.csv(ddr.mat, file = "dnarep_mat.csv",
 genes.in.data <- ddr.gene.list[ddr.gene.list$Gene %in% rownames(full.rna.seq.mat),]
 write.csv(genes.in.data, file = "ddr.genes.in.data.csv",
           row.names = TRUE)
-
-#Loads clinical data into R. 
-#TODO: Move to another script
-#clinical <- GDCprepare_clinic(query, clinical.info = "patient")
