@@ -1,7 +1,5 @@
 ####
 # TODO: Pull in clinical data for specimen collection method
-# TODO: Figure out which normalization method is most appropriate e.g. median,
-#       75th quantile, one of the options from DESeq2
 # TODO: Determine appropriate options for Clustering (complete vs. average), euclidean distance
 # TODO: Run k-means clustering and compare to hierarchical clustering
 
@@ -43,15 +41,6 @@ ddr.desq <- ddr.desq[to.keep,]
 ddr.desq <- DESeq(ddr.desq, parallel = TRUE, BPPARAM=MulticoreParam(4))
 ddr.res <- results(ddr.desq)
 
-# Basic approaches to normalization
-ddr.l2mat <- log2(ddr.mat + 1)
-ddr.snorm <- scale(ddr.l2mat, center = TRUE, scale=TRUE)
-
-ddr.median.normd <- apply(ddr.mat,2,MedNorm)
-ddr.l2.mednorm <- log2(ddr.median.normd + 1)
-# 75th Quantile Normalization: New = Obs - 75th quantile
-ddr.75q.normd <- sweep(ddr.l2mat,1, apply(ddr.mat,1,quantile, probs=.75,na.rm=T))
-
 # DESeq2 Based Normalizations
 # Normalizes the data according to the regularized logarithm transformation
 # Note: broke R on my laptop. Will have to try running overnight or on the cluster. 
@@ -60,7 +49,6 @@ ddr.75q.normd <- sweep(ddr.l2mat,1, apply(ddr.mat,1,quantile, probs=.75,na.rm=T)
 ddr.vsd <- varianceStabilizingTransformation(ddr.desq, blind = TRUE)
 vsd=assay(ddr.vsd)  # vsd is now the normalized log2-transformed data
 
-ddr.norm <- normTransform(ddr.desq)
 #######################################
 ######### Clustering ######
 #######################################
@@ -99,35 +87,8 @@ pheatmap(cor(assay(ddr.vsd)[cv.select,]),
 #######################################
 ######### Consensus Clustering ######
 #########################################
-# Consensus Clustering based on median normalized data
-# Hierarchical clustering using pearson correlation
-ddr.med.ccres <- ConsensusClusterPlus(ddr.median.normd,maxK=6,reps=50,pItem=0.8,
-                                        pFeature=1, 
-                                        title="./ConsensusClustering/MedianNorm",
-                                        clusterAlg="hc",
-                                        distance="pearson",seed=1262118388.71279,plot="pdf")
 
-# Consensus Clustering based on 75th Quantile normalized data
-# Hierarchical clustering using pearson correlation
-ddr.med.ccres <- ConsensusClusterPlus(ddr.75q.normd,maxK=6,reps=50,pItem=0.8,
-                                         pFeature=1, 
-                                         title="./ConsensusClustering/75qNorm",clusterAlg="hc",
-                                         distance="pearson",seed=1262118388.71279,plot="pdf")
-# Consensus Clustering based on median normalized data
-# k-means clustering using euclidean distance
-ddr.med.kmeans <- ConsensusClusterPlus(ddr.median.normd,maxK=6,reps=50,pItem=0.8,
-                                         pFeature=1, 
-                                         title="./ConsensusClustering/MedianNorm/kmeans",
-                                         clusterAlg="km",
-                                         distance="euclidean",seed=1262118388.71279,plot="pdf")
-# Consensus Clustering based on 75th Quantile normalized data
-# k-means clustering using euclidean distance
-ddr.75q.kmeans <- ConsensusClusterPlus(ddr.75q.normd,maxK=6,reps=50,pItem=0.8,
-                                          pFeature=1, 
-                                          title="./ConsensusClustering/75qNorm/kmeans",
-                                          clusterAlg="km",
-                                          distance="euclidean",seed=1262118388.71279,plot="pdf")
-# Consensus Clustering based on median normalized data
+# Consensus Clustering based on VST normalized data
 # Hierarchical clustering using pearson correlation
 ddr.vst.ccres <- ConsensusClusterPlus(vsd,maxK=10,reps=50,pItem=0.8,
                                          pFeature=1, 
@@ -140,51 +101,4 @@ ddr.vst.ccres2 <- ConsensusClusterPlus(vsd,maxK=10,reps=50,pItem=0.8,
                                       clusterAlg="hc",
                                       distance="pearson",seed=1262118388.71279,plot="pdf")
 # Item Consensus Plots
-icl.med <- calcICL(ddr.med.ccres,title="./ConsensusClustering/MedianNorm",plot="pdf")
-icl.75q <- calcICL(ddr.med.ccres,title="./ConsensusClustering/75qNorm",plot="pdf")
-
-
-######### Hierarchical Clustering
-##
-# Cluster the DeSeq normalized data - average
-ddr.clust <- hclust(dist(t(ddr.normd), method="euclidean"), 
-                       method="average")
-# Cluster the normalized data - complete
-ddr.clust.comp <- hclust(dist(t(ddr.normd), method="euclidean"), 
-                       method="complete")
-ddr.clust.genes <- hclust(dist(ddr.normd, method="euclidean"), 
-                                method="complete")
-# TODO: Update this to DESeq2, code for DESeq not compatible
-# Get a matrix of variance stabilized data
-#ddr.cds <- estimateDispersions( ddr.cds, method="blind" )
-#ddr.vsd <- getVarianceStabilizedData( ddr.cds )
-# Cluster the variance stabilized data
-#ddr.vsd.clust <- hclust(dist(ddr.vsd, method="euclidean"), 
-#                       method="average")
-#ddr.vsd.clust.comp <- hclust(dist(ddr.vsd, method="euclidean"),
-#                                method = "complete")
-
-# Heatmap from Deseq vignette
-# This is just for trying to understand a bit more about the package
-#cdsFullBlind = estimateDispersions( ddr.cds, method = "blind" )
-#vsdFull = varianceStabilizingTransformation( cdsFullBlind )
-
-
-#select = order(rowMeans(counts(ddr.cds)), decreasing=TRUE)[1:30]
-#hmcol = colorRampPalette(brewer.pal(9, "GnBu"))(100)
-# Cluster with the transformed data. Only takes the 3 most expressed genes
-#heatmap.2(exprs(vsdFull)[select,], col = hmcol, trace="none", margin=c(10, 6))
-# Cluster with the untransformed count data - Don't use this, just for my own edification
-#heatmap.2(counts(ddr.cds)[select,], col = hmcol, trace="none", margin=c(10,6))
-# Cluster with the transformed data but don't cluster samples
-#heatmap.2(exprs(vsdFull)[select,], col = hmcol, trace="none", margin=c(10, 6), 
-#          Colv=FALSE,
-#          dendrogram="row",
-#          labCol = NULL)
-# Cluster with all the data
-#heatmap.2(exprs(vsdFull)[,], col = hmcol, trace="none")
-
-# Outlier detection
-#cdsBlind = estimateDispersions( ddr.cds, method="blind" )
-#vsd = varianceStabilizingTransformation( cdsBlind )
-#arrayQualityMetrics(vsd)
+icl.vst <- calcICL(ddr.vst.ccres,title="./ConsensusClustering/VST",plot="pdf")
