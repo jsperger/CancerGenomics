@@ -20,51 +20,88 @@ library("BiocParallel")
 ######### Data and Normalization ######
 #######################################
 ###### Data input
-dnarep.seq <- read.csv("dnarep_mat.csv", header=TRUE, row.names = 1)
-dnarep.mat <- data.matrix(dnarep.seq)
+ddr.seq <- read.csv("ddr_mat.csv", header=TRUE, row.names = 1)
+ddr.mat <- data.matrix(ddr.seq)
 #TCGA Barcode
 # https://wiki.nci.nih.gov/display/TCGA/TCGA+barcode
-barcode <- matrix(unlist(strsplit(colnames(dnarep.mat), ".", fixed=TRUE)), ncol=7, byrow = TRUE)
+barcode <- matrix(unlist(strsplit(colnames(ddr.mat), ".", fixed=TRUE)), ncol=7, byrow = TRUE)
 colnames(barcode) <- c("Project", "TSS", "Participant", "Sample", "Portion", "Plate", "Center")
 #barcode[,c(2,3,7)] <- as.numeric(barcode[,c(2,3,7)])
 barcode <- data.frame(barcode)
 barcode$Participant <- factor(barcode$Participant)
 # Create DeSeq dataset
-dna.desq <- DESeqDataSetFromMatrix(countData = dnarep.mat,
+ddr.desq <- DESeqDataSetFromMatrix(countData = ddr.mat,
                                    colData = barcode,
-                                   design = ~ 1)
+                                   design = ~ TSS)
 
 #Preprocessing
 # Remove genes with <10 reads, Only removes 1 gene
-to.keep <- rowSums(counts(dna.desq)) >= 10
-dna.desq <- dna.desq[to.keep,]
-#dna.desq <- estimateSizeFactors(dna.desq)
-#dna.desq <- estimateDispersions(dna.desq)
-dna.desq <- DESeq(dna.desq, parallel = TRUE, BPPARAM=MulticoreParam(4))
-ddr.res <- results(dna.desq)
+to.keep <- rowSums(counts(ddr.desq)) >= 10
+ddr.desq <- ddr.desq[to.keep,]
+#ddr.desq <- estimateSizeFactors(ddr.desq)
+#ddr.desq <- estimateDispersions(ddr.desq)
+ddr.desq <- DESeq(ddr.desq, parallel = TRUE, BPPARAM=MulticoreParam(4))
+ddr.res <- results(ddr.desq)
 
 # Basic approaches to normalization
-# Median Normalization: New = Obs - median
-dnarep.median.normd <- sweep(dnarep.mat,1, apply(dnarep.mat,1,median,na.rm=T))
+ddr.l2mat <- log2(ddr.mat + 1)
+ddr.snorm <- scale(ddr.l2mat, center = TRUE, scale=TRUE)
+
+ddr.median.normd <- apply(ddr.mat,2,MedNorm)
+ddr.l2.mednorm <- log2(ddr.median.normd + 1)
 # 75th Quantile Normalization: New = Obs - 75th quantile
-dnarep.75q.normd <- sweep(dnarep.mat,1, apply(dnarep.mat,1,quantile, probs=.75,na.rm=T))
+ddr.75q.normd <- sweep(ddr.l2mat,1, apply(ddr.mat,1,quantile, probs=.75,na.rm=T))
 
 # DESeq2 Based Normalizations
 # Normalizes the data according to the regularized logarithm transformation
 # Note: broke R on my laptop. Will have to try running overnight or on the cluster. 
-# ddr.rlog <- rlog(dna.desq)
+# ddr.rlog <- rlog(ddr.desq)
 
-ddr.vsd <- varianceStabilizingTransformation(dna.desq, blind = FALSE)
-ddr.norm <- normTransform(dna.desq)
+ddr.vsd <- varianceStabilizingTransformation(ddr.desq, blind = TRUE)
+vsd=assay(ddr.vsd)  # vsd is now the normalized log2-transformed data
+
+ddr.norm <- normTransform(ddr.desq)
 #######################################
 ######### Clustering ######
 #######################################
 
-######### Consensus Clustering
-##
+#Heatmap and hierarchical clustering of 40 most differentially expressed genes
+mean.select <- order(rowMeans(assay(ddr.vsd)),
+                decreasing=TRUE)[1:40]
+pheatmap(assay(ddr.vsd)[mean.select,], cluster_rows=TRUE, show_rownames=TRUE,
+         cluster_cols=TRUE, show_colnames = FALSE)
+
+var.select <- order(rowVars(assay(ddr.vsd)),
+                     decreasing=TRUE)[1:40]
+pheatmap(assay(ddr.vsd)[var.select,], cluster_rows=TRUE, show_rownames=TRUE,
+         cluster_cols=TRUE, show_colnames = FALSE)
+
+combined.select <- unique(c(mean.select, var.select))
+inter.select <- mean.select[mean.select %in%  var.select]
+pheatmap(assay(ddr.vsd)[inter.select,], cluster_rows=TRUE, show_rownames=TRUE,
+         cluster_cols=TRUE, show_colnames = FALSE, 
+         main="High Expression High Variance - Euclidean")
+pheatmap(assay(ddr.vsd)[inter.select,], cluster_rows=TRUE, show_rownames=TRUE,
+         cluster_cols=TRUE, show_colnames = FALSE, 
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation",
+         main="High Expression High Variance - Correlation")
+full.sample.cor.hmap <- pheatmap(cor(vsd), show_rownames = FALSE, show_colnames = FALSE, 
+         main = "Sample Pearson Correlation")  
+pheatmap(cor(vsd, method="spearman"), show_rownames = FALSE, show_colnames = FALSE,
+         main = "Sample Spearman Correlation")  
+coef.var <- rowVars(assay(ddr.vsd))/rowMeans(assay(ddr.vsd))
+cv.select <- order(coef.var,
+                    decreasing=TRUE)[1:300]
+pheatmap(cor(assay(ddr.vsd)[cv.select,]), 
+         show_rownames=FALSE, show_colnames = FALSE, 
+         main="Coefficient of Variation Selected Heatmap")
+#######################################
+######### Consensus Clustering ######
+#########################################
 # Consensus Clustering based on median normalized data
 # Hierarchical clustering using pearson correlation
-dnarep.med.ccres <- ConsensusClusterPlus(dnarep.median.normd,maxK=6,reps=50,pItem=0.8,
+ddr.med.ccres <- ConsensusClusterPlus(ddr.median.normd,maxK=6,reps=50,pItem=0.8,
                                         pFeature=1, 
                                         title="./ConsensusClustering/MedianNorm",
                                         clusterAlg="hc",
@@ -72,69 +109,73 @@ dnarep.med.ccres <- ConsensusClusterPlus(dnarep.median.normd,maxK=6,reps=50,pIte
 
 # Consensus Clustering based on 75th Quantile normalized data
 # Hierarchical clustering using pearson correlation
-dnarep.med.ccres <- ConsensusClusterPlus(dnarep.75q.normd,maxK=6,reps=50,pItem=0.8,
+ddr.med.ccres <- ConsensusClusterPlus(ddr.75q.normd,maxK=6,reps=50,pItem=0.8,
                                          pFeature=1, 
                                          title="./ConsensusClustering/75qNorm",clusterAlg="hc",
                                          distance="pearson",seed=1262118388.71279,plot="pdf")
 # Consensus Clustering based on median normalized data
 # k-means clustering using euclidean distance
-dnarep.med.kmeans <- ConsensusClusterPlus(dnarep.median.normd,maxK=6,reps=50,pItem=0.8,
+ddr.med.kmeans <- ConsensusClusterPlus(ddr.median.normd,maxK=6,reps=50,pItem=0.8,
                                          pFeature=1, 
                                          title="./ConsensusClustering/MedianNorm/kmeans",
                                          clusterAlg="km",
                                          distance="euclidean",seed=1262118388.71279,plot="pdf")
 # Consensus Clustering based on 75th Quantile normalized data
 # k-means clustering using euclidean distance
-dnarep.75q.kmeans <- ConsensusClusterPlus(dnarep.75q.normd,maxK=6,reps=50,pItem=0.8,
+ddr.75q.kmeans <- ConsensusClusterPlus(ddr.75q.normd,maxK=6,reps=50,pItem=0.8,
                                           pFeature=1, 
                                           title="./ConsensusClustering/75qNorm/kmeans",
                                           clusterAlg="km",
                                           distance="euclidean",seed=1262118388.71279,plot="pdf")
 # Consensus Clustering based on median normalized data
 # Hierarchical clustering using pearson correlation
-dnarep.vst.ccres <- ConsensusClusterPlus(assay(vsd),maxK=6,reps=50,pItem=0.8,
+ddr.vst.ccres <- ConsensusClusterPlus(vsd,maxK=10,reps=50,pItem=0.8,
                                          pFeature=1, 
                                          title="./ConsensusClustering/VST",
                                          clusterAlg="hc",
                                          distance="euclidean",seed=1262118388.71279,plot="pdf")
-
+ddr.vst.ccres2 <- ConsensusClusterPlus(vsd,maxK=10,reps=50,pItem=0.8,
+                                      pFeature=1, 
+                                      title="./ConsensusClustering/VST/Pearson",
+                                      clusterAlg="hc",
+                                      distance="pearson",seed=1262118388.71279,plot="pdf")
 # Item Consensus Plots
-icl.med <- calcICL(dnarep.med.ccres,title="./ConsensusClustering/MedianNorm",plot="pdf")
-icl.75q <- calcICL(dnarep.med.ccres,title="./ConsensusClustering/75qNorm",plot="pdf")
+icl.med <- calcICL(ddr.med.ccres,title="./ConsensusClustering/MedianNorm",plot="pdf")
+icl.75q <- calcICL(ddr.med.ccres,title="./ConsensusClustering/75qNorm",plot="pdf")
 
 
 ######### Hierarchical Clustering
 ##
 # Cluster the DeSeq normalized data - average
-dnarep.clust <- hclust(dist(t(dnarep.normd), method="euclidean"), 
+ddr.clust <- hclust(dist(t(ddr.normd), method="euclidean"), 
                        method="average")
 # Cluster the normalized data - complete
-dnarep.clust.comp <- hclust(dist(t(dnarep.normd), method="euclidean"), 
+ddr.clust.comp <- hclust(dist(t(ddr.normd), method="euclidean"), 
                        method="complete")
-dnarep.clust.genes <- hclust(dist(dnarep.normd, method="euclidean"), 
+ddr.clust.genes <- hclust(dist(ddr.normd, method="euclidean"), 
                                 method="complete")
 # TODO: Update this to DESeq2, code for DESeq not compatible
 # Get a matrix of variance stabilized data
-#dnarep.cds <- estimateDispersions( dnarep.cds, method="blind" )
-#dna.vsd <- getVarianceStabilizedData( dnarep.cds )
+#ddr.cds <- estimateDispersions( ddr.cds, method="blind" )
+#ddr.vsd <- getVarianceStabilizedData( ddr.cds )
 # Cluster the variance stabilized data
-#dnarep.vsd.clust <- hclust(dist(dna.vsd, method="euclidean"), 
+#ddr.vsd.clust <- hclust(dist(ddr.vsd, method="euclidean"), 
 #                       method="average")
-#dnarep.vsd.clust.comp <- hclust(dist(dna.vsd, method="euclidean"),
+#ddr.vsd.clust.comp <- hclust(dist(ddr.vsd, method="euclidean"),
 #                                method = "complete")
 
 # Heatmap from Deseq vignette
 # This is just for trying to understand a bit more about the package
-#cdsFullBlind = estimateDispersions( dnarep.cds, method = "blind" )
+#cdsFullBlind = estimateDispersions( ddr.cds, method = "blind" )
 #vsdFull = varianceStabilizingTransformation( cdsFullBlind )
 
 
-#select = order(rowMeans(counts(dnarep.cds)), decreasing=TRUE)[1:30]
+#select = order(rowMeans(counts(ddr.cds)), decreasing=TRUE)[1:30]
 #hmcol = colorRampPalette(brewer.pal(9, "GnBu"))(100)
 # Cluster with the transformed data. Only takes the 3 most expressed genes
 #heatmap.2(exprs(vsdFull)[select,], col = hmcol, trace="none", margin=c(10, 6))
 # Cluster with the untransformed count data - Don't use this, just for my own edification
-#heatmap.2(counts(dnarep.cds)[select,], col = hmcol, trace="none", margin=c(10,6))
+#heatmap.2(counts(ddr.cds)[select,], col = hmcol, trace="none", margin=c(10,6))
 # Cluster with the transformed data but don't cluster samples
 #heatmap.2(exprs(vsdFull)[select,], col = hmcol, trace="none", margin=c(10, 6), 
 #          Colv=FALSE,
@@ -144,6 +185,6 @@ dnarep.clust.genes <- hclust(dist(dnarep.normd, method="euclidean"),
 #heatmap.2(exprs(vsdFull)[,], col = hmcol, trace="none")
 
 # Outlier detection
-#cdsBlind = estimateDispersions( dnarep.cds, method="blind" )
+#cdsBlind = estimateDispersions( ddr.cds, method="blind" )
 #vsd = varianceStabilizingTransformation( cdsBlind )
 #arrayQualityMetrics(vsd)

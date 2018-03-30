@@ -61,10 +61,10 @@ gene.names <- rowData(rna.seqdat)$external_gene_name
 ddr.gene.list <- read.csv("dna_repair_genelist.csv", stringsAsFactors = FALSE)
 # Take the genes which appear in the RNA-Seq data
 to.keep <- gene.names %in% ddr.gene.list$Gene
-ddr.mat <- full.rna.seq.mat[genes.in.data,]
+ddr.mat <- full.rna.seq.mat[to.keep,]
 
 # Write the RNA-Seq data to a matrix
-write.csv(ddr.mat, file = "dnarep_mat.csv",
+write.csv(ddr.mat, file = "ddr_mat.csv",
           row.names = TRUE)
 # Gets a list of which DDR Genes appear in the data
 genes.in.data <- ddr.gene.list[ddr.gene.list$Gene %in% rownames(full.rna.seq.mat),]
