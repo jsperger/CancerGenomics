@@ -164,6 +164,6 @@ legend(x="topright", col=1:4, lwd=2, legend=c("Both", "Carboplatin Only", "Cispl
 ######### Cox Model ######
 #######################################
 # Cox model based on age. Just for example
-cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + ethnicity)
-# Reference group for ethnicity is either missing or nonwhite, not sure
+cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + race_list + neoplasm_histologic_grade + plat_type + radiation_therapy + person_neoplasm_cancer_status)
+#Why am i getting nonconvergence?
 summary(cox.age)
