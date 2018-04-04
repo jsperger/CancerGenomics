@@ -13,6 +13,8 @@
 #######################################
 library("TCGAbiolinks")
 library(survival)
+library("glmpath")
+library("survminer")
 
 #######################################
 ######### Data Preparation ######
@@ -64,17 +66,17 @@ for (i in c(1: length(patient_names)))
     plat_type[i] <- "Neither"
   }
   if (plat[1] %in% data$drug_name & plat[2] %in% data$drug_name){
-    plat_type[i] <- "Both"
+      plat_type[i] <- "Both"
   }
   else if (plat[1] %in% data$drug_name &  !(plat[2] %in% data$drug_name)){
-    plat_type[i] <- plat[1]
-  }
+      plat_type[i] <- plat[1]
+    }
   else if (!(plat[1] %in% data$drug_name) &  plat[2] %in% data$drug_name){
-    plat_type[i] <- plat[2]
-  }
+      plat_type[i] <- plat[2]
+    }
   else{
-    plat_type[i] <- "Neither"
-  }
+      plat_type[i] <- "Neither"
+    }
 }
 
 temp1 <- data.frame("bcr_patient_barcode" = patient_names,plat_use,plat_type)
@@ -150,9 +152,17 @@ surv.data$EventTime <- ifelse(!is.na(surv.data$days_to_death),
                               surv.data$days_to_last_followup)
 # Create an indicator variable for whether the event is death or censoring
 surv.data$censored <- ifelse(!is.na(surv.data$days_to_death), 
-                             FALSE, 
-                             TRUE)
-# Fit the KM curves
+                              FALSE, 
+                              TRUE)
+
+
+#Merge datasetes
+cluster <- read.csv("cluster_results.csv")
+surv.data <- merge(surv.data, cluster, by="bcr_patient_barcode")
+
+
+
+# KM for drug use
 km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$plat_type , conf.type = "plain")
 # Example KM Plot
 plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for Different drug use")),
@@ -160,12 +170,40 @@ plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), 
 legend(x="topright", col=1:4, lwd=2, legend=c("Both", "Carboplatin Only", "Cisplatin Only", "Neither"))
 
 
+#KM for clusters
+km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$NMFC3 , conf.type = "plain")
+plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for Clusters ")),
+     xlab="t", ylab="Survival", lwd=2, col=1:3)
+legend(x="topright", col=1:3, lwd=2, legend=c("Cluster 1", "Cluster 2", "Cluster 3 "))
+#Nearly the same survival time
+
 #######################################
 ######### Cox Model ######
 #######################################
+#Cox Models fails to find it significent.
+cox.cluster <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3)
+#Test of the proportinality assumption using Schoenfeld Residuals
+test.ph <- cox.zph(cox.cluster)
+test.ph
+#Visual plot of the residuals over time
+ggcoxzph(test.ph,var = c("NMFC3"))
+
+#Influential observations using dfbetas
+ggcoxdiagnostics(cox.cluster, type = "dfbeta", var = c(NMFC3),
+                 linear.predictions = FALSE, ggtheme = theme_bw())
+
+#Model2
+cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity+ plat_type+ person_neoplasm_cancer_status)
+summary(cox2)
+test.ph <- cox.zph(cox2)
+test.ph
+ggcoxzph(test.ph)
+#
+cox.cluster <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity + plat_type + radiation_therapy + person_neoplasm_cancer_status )
+summary(cox.cluster)
+
+
 # Cox model based on age. Just for example
 cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + race_list + neoplasm_histologic_grade + plat_type + radiation_therapy + person_neoplasm_cancer_status)
-cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis  +  radiation_therapy)
-
 #Why am i getting nonconvergence?
 summary(cox.age)
