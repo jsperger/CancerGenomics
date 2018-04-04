@@ -77,8 +77,8 @@ for (i in c(1: length(patient_names)))
     }
 }
 
-temp1 <- data.frame(clinical$bcr_patient_barcode,plat_use,plat_type)
-
+temp1 <- data.frame("bcr_patient_barcode" = patient_names,plat_use,plat_type)
+clinical <- merge(clinical, temp1, by="bcr_patient_barcode")
 
 plat_use2 <- plat_use
 plat_type2 <- plat_type 
@@ -135,7 +135,8 @@ str(clinical.fup)
 
 surv.vars <- c("bcr_patient_barcode", "days_to_death", "days_to_last_followup",
                "age_at_initial_pathologic_diagnosis", "race_list", "person_neoplasm_cancer_status",
-               "ethnicity","neoplasm_histologic_grade", "radiation_therapy", "primary_therapy_outcome_success", "ethnicity")
+               "ethnicity","neoplasm_histologic_grade", "radiation_therapy", "primary_therapy_outcome_success", "ethnicity", 
+               "plat_use", "plat_type")
 
 surv.drug.vars <- c("bcr_drug_barcode", "therapy_types", "drug_name", "regimen_indication", "plat_use", "plat_type")
 
@@ -152,18 +153,17 @@ surv.data$censored <- ifelse(!is.na(surv.data$days_to_death),
                               FALSE, 
                               TRUE)
 # Fit the KM curves
-km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$ethnicity, conf.type = "plain")
+km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$plat_type , conf.type = "plain")
 # Example KM Plot
-plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for groups g")),
-     xlab="t", ylab="Survival", lwd=2, col=1:3)
-legend(x="topright", col=1:3, lwd=2, legend=LETTERS[1:3])
+plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for Different drug use")),
+     xlab="t", ylab="Survival", lwd=2, col=1:4)
+legend(x="topright", col=1:4, lwd=2, legend=c("Both", "Carboplatin Only", "Cisplatin Only", "Neither"))
 
 
 #######################################
 ######### Cox Model ######
 #######################################
-
 # Cox model based on age. Just for example
-cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + ethnicity)
-# Reference group for ethnicity is either missing or nonwhite, not sure
+cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + race_list + neoplasm_histologic_grade + plat_type + radiation_therapy + person_neoplasm_cancer_status)
+#Why am i getting nonconvergence?
 summary(cox.age)
