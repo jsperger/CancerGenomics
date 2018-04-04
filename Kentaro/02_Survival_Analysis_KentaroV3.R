@@ -158,42 +158,69 @@ surv.data$censored <- ifelse(!is.na(surv.data$days_to_death),
 
 #Merge datasetes
 cluster <- read.csv("cluster_results.csv")
+cluster$NMFC3 <- as.factor(cluster$NMFC3)
 surv.data <- merge(surv.data, cluster, by="bcr_patient_barcode")
 
 
 
 # KM for drug use
 km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$plat_type , conf.type = "plain")
-# Example KM Plot
+# KM Plot for drug use
 plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for Different drug use")),
      xlab="t", ylab="Survival", lwd=2, col=1:4)
 legend(x="topright", col=1:4, lwd=2, legend=c("Both", "Carboplatin Only", "Cisplatin Only", "Neither"))
 
 
-#KM for clusters
+#KM for Our clustering
 km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$NMFC3 , conf.type = "plain")
 plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), " for Clusters ")),
      xlab="t", ylab="Survival", lwd=2, col=1:3)
 legend(x="topright", col=1:3, lwd=2, legend=c("Cluster 1", "Cluster 2", "Cluster 3 "))
 #Nearly the same survival time
 
+#KM For Original Clustering
+
 #######################################
 ######### Cox Model ######
 #######################################
 #Cox Models fails to find it significent.
 cox.cluster <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3)
+summary(cox.cluster)
 #Test of the proportinality assumption using Schoenfeld Residuals
 test.ph <- cox.zph(cox.cluster)
 test.ph
-#Visual plot of the residuals over time
-ggcoxzph(test.ph,var = c("NMFC3"))
+#Visual plot of the residuals over time seems like there is a significent violation of proprotional hazards
+ggcoxzph(test.ph)
 
 #Influential observations using dfbetas
 ggcoxdiagnostics(cox.cluster, type = "dfbeta", var = c(NMFC3),
                  linear.predictions = FALSE, ggtheme = theme_bw())
 
-#Model2
-cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity+ plat_type+ person_neoplasm_cancer_status)
+#None of these subtypes seem paticularly more susceible to play use
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_use + NMFC3 * plat_use)
+summary(cox1)
+
+#
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_type )
+summary(cox1)
+
+#Are there bweteen drug differences?
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis +NMFC3 + plat_type * NMFC3)
+summary(cox1)
+#Type 2 seems more deadly, but if treated with CIsplatin and carboplatin it can last
+
+#Does what drugs were used help?
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_type * NMFC3)
+summary(cox1)
+#Cisplatin seems to have a very good, large effect on survival if you have subtype 2
+
+#Is there an age thing going on?
+cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis +  NMFC3 + plat_type * NMFC3)
+summary(cox2)
+#Now subtype two seems to respond well to carboplatin and cisplatin 
+
+#Full Model
+cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity+ plat_type+ person_neoplasm_cancer_status  )
 summary(cox2)
 test.ph <- cox.zph(cox2)
 test.ph
