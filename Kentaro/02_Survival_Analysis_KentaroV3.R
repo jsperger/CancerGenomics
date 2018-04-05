@@ -15,6 +15,7 @@ library("TCGAbiolinks")
 library(survival)
 library("glmpath")
 library("survminer")
+library("droplevels")
 
 #######################################
 ######### Data Preparation ######
@@ -133,12 +134,10 @@ str(clinical)
 str(clinical.drug)
 str(clinical.fup)
 
-
-
 surv.vars <- c("bcr_patient_barcode", "days_to_death", "days_to_last_followup",
                "age_at_initial_pathologic_diagnosis", "race_list", "person_neoplasm_cancer_status",
                "ethnicity","neoplasm_histologic_grade", "radiation_therapy", "primary_therapy_outcome_success", "ethnicity", 
-               "plat_use", "plat_type")
+               "plat_use", "plat_type", "tumor_tissue_site", "icd_o_3_histology", "primary_therapy_outcome_success", "has_new_tumor_events_information")
 
 surv.drug.vars <- c("bcr_drug_barcode", "therapy_types", "drug_name", "regimen_indication", "plat_use", "plat_type")
 
@@ -150,6 +149,7 @@ surv.drug.data <- clinical.drug[, surv.drug.vars]
 surv.data$EventTime <- ifelse(!is.na(surv.data$days_to_death), 
                               surv.data$days_to_death, 
                               surv.data$days_to_last_followup)
+
 # Create an indicator variable for whether the event is death or censoring
 surv.data$censored <- ifelse(!is.na(surv.data$days_to_death), 
                               FALSE, 
@@ -161,7 +161,9 @@ cluster <- read.csv("cluster_results.csv")
 cluster$NMFC3 <- as.factor(cluster$NMFC3)
 surv.data <- merge(surv.data, cluster, by="bcr_patient_barcode")
 
-
+surv.data <- surv.data[-which(surv.data$race_list == "AMERICAN INDIAN OR ALASKA NATIVE"),]
+surv.data <- surv.data[-which(surv.data$race_list == "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER"),]
+surv.data$race_list <-  droplevels(surv.data$race_list)
 
 # KM for drug use
 km.surv.fit <- survfit(Surv(surv.data$EventTime, surv.data$censored) ~ surv.data$plat_type , conf.type = "plain")
@@ -178,7 +180,7 @@ plot(km.surv.fit, main=expression(paste("Kaplan-Meier-estimate ", hat(S)[g](t), 
 legend(x="topright", col=1:3, lwd=2, legend=c("Cluster 1", "Cluster 2", "Cluster 3 "))
 #Nearly the same survival time
 
-#KM For Original Clustering
+#KM For Issac Clustering
 
 #######################################
 ######### Cox Model ######
@@ -186,51 +188,54 @@ legend(x="topright", col=1:3, lwd=2, legend=c("Cluster 1", "Cluster 2", "Cluster
 #Cox Models fails to find it significent.
 cox.cluster <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3)
 summary(cox.cluster)
-#Test of the proportinality assumption using Schoenfeld Residuals
-test.ph <- cox.zph(cox.cluster)
-test.ph
-#Visual plot of the residuals over time seems like there is a significent violation of proprotional hazards
-ggcoxzph(test.ph)
+#Hard to see difference in survival time soley based on cluster.
 
-#Influential observations using dfbetas
+#Plot confirms that it is certinaly hard to tell the differnece.
+fit<- survfit(Surv(EventTime, censored) ~ NMFC3, data = surv.data)
+ggsurvplot(fit, conf.int = TRUE, risk.table = TRUE, risk.table.y.text.col = TRUE)
+
+#First check influential observations
 ggcoxdiagnostics(cox.cluster, type = "dfbeta", var = c(NMFC3),
                  linear.predictions = FALSE, ggtheme = theme_bw())
+#Ouch, not much stands out.
 
-#None of these subtypes seem paticularly more susceible to play use
-cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_use + NMFC3 * plat_use)
-summary(cox1)
-
-#
-cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_type )
-summary(cox1)
-
-#Are there bweteen drug differences?
-cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis +NMFC3 + plat_type * NMFC3)
-summary(cox1)
-#Type 2 seems more deadly, but if treated with CIsplatin and carboplatin it can last
-
-#Does what drugs were used help?
-cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ NMFC3 + plat_type * NMFC3)
-summary(cox1)
-#Cisplatin seems to have a very good, large effect on survival if you have subtype 2
-
-#Is there an age thing going on?
-cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis +  NMFC3 + plat_type * NMFC3)
-summary(cox2)
-#Now subtype two seems to respond well to carboplatin and cisplatin 
-
-#Full Model
-cox2 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity+ plat_type+ person_neoplasm_cancer_status  )
-summary(cox2)
-test.ph <- cox.zph(cox2)
+#Test of the proportinality assumption using Schoenfeld Residuals shows no violations
+test.ph <- cox.zph(cox.cluster)
 test.ph
+
+#Visual plot of the residuals over time seems like there is a  violation of proprotional hazards
 ggcoxzph(test.ph)
-#
-cox.cluster <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + ethnicity + plat_type + radiation_therapy + person_neoplasm_cancer_status )
-summary(cox.cluster)
 
 
-# Cox model based on age. Just for example
-cox.age <- coxph(data = surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + race_list + neoplasm_histologic_grade + plat_type + radiation_therapy + person_neoplasm_cancer_status)
-#Why am i getting nonconvergence?
-summary(cox.age)
+
+#FUll model without drugs
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list  + has_new_tumor_events_information  )
+summary(cox1)
+
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list  + has_new_tumor_events_information + NMFC3 * has_new_tumor_events_information  )
+summary(cox1)
+
+#Plat use vs not?
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list+ has_new_tumor_events_information + plat_use )
+summary(cox1)
+
+#Drug use vs not?
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list + plat_use + has_new_tumor_events_information + plat_use * NMFC3)
+summary(cox1)
+#Those in subtype 3 that didnt get platinum based treatments died very quickly
+table(surv.data$NMFC3, surv.data$plat_use)
+#until you realize that no plat use and subtype 3 only has 2 people. 
+
+
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list + plat_type + has_new_tumor_events_information + plat_type * NMFC3)
+#once again too few to subset liek this.
+table(surv.data$NMFC3, surv.data$plat_type)
+summary(cox1)
+
+#Full model selected with stepwise
+cox1 <- coxph(data=  surv.data, Surv(EventTime, censored) ~ age_at_initial_pathologic_diagnosis + NMFC3 + race_list + plat_type + has_new_tumor_events_information )
+summary(cox1)
+#The fact that carbo and cisplatin alone have better survival rates seems to hint at these ppl getting cured but not eonugh data
+#And the fact that it doesnt differe much from Neither is much more interesting as it doesnt seem to hint
+#that drugs are prolingin survival time
+
