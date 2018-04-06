@@ -91,7 +91,7 @@ write.table(paste0(sub.c2.genes, collapse=", "), file="CancerGenomics/Results/su
             row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
 write.table(paste0(sub.c3.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_3_list.txt", 
             row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
-write.table(paste0(sub.c4.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_3_list.txt", 
+write.table(paste0(sub.c4.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_4_list.txt", 
             row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
 
 #######################################
