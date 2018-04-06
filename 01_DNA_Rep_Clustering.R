@@ -44,7 +44,10 @@ ddr.vsd <- varianceStabilizingTransformation(ddr.mat, blind = TRUE)
 #plot(estim.r)
 #consensusmap(estim.r,  labCol=NA, labRow=NA)
 #vsd.nmf <- nmf(x=ddr.vsd, rank=3, nrun=300, .opt='vp4')
+vsd.nmf.k2 <- nmf(x=ddr.vsd, rank=2)
 #save(vsd.nmf, file='./Results/nmf_k3_300.RData')
+#save(vsd.nmf.k2, file='./Results/nmf_k2.RData')
+
 load("./Results/nmf_k3_300.RData")
 
 # Get details about the meta-genes
@@ -65,6 +68,7 @@ write.table(paste0(c3.genes, collapse=", "), file="./Results/metagene_3_list.txt
 
 #Assign Clusters from k=3 NMF Clustering
 barcode$NMFC3 <- predict(vsd.nmf)
+barcode$NMFC2 <- predict(vsd.nmf.k2)
 
 write.csv(barcode, file = "./Results/cluster_results.csv", row.names = FALSE)
 
@@ -96,6 +100,15 @@ coefmap(vsd.nmf)
 dev.off()
 pdf("consensus_map.pdf")
 consensusmap(vsd.nmf)
+dev.off()
+pdf("consensus_map_k2.pdf")
+consensusmap(vsd.nmf.k2)
+dev.off()
+pdf("basis_map_k2.pdf")
+basismap(vsd.nmf.k2, subsetRow = TRUE)
+dev.off()
+pdf("coef_map_k2.pdf")
+coefmap(vsd.nmf.k2)
 dev.off()
 #######################################
 ######### Old ######
