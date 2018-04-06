@@ -62,63 +62,77 @@ subtype.vsd <- varianceStabilizingTransformation(subtype.mat, blind = TRUE)
 
 #######################################
 # You prolly do not want to run the next couple of lines
-##subtype_estim.r <- nmf(subtype.vsd, 2:6, nrun=2)#, .opt='vp8')
-##Sys.time()
-##save(subtype_estim.r, file='nmf_k_subtype.RData')
-##plot(subtype_estim.r)
-##consensusmap(subtype_estim.r,  labCol=NA, labRow=NA)
-#vsd.nmf <- nmf(x=ddr.vsd, rank=3, nrun=300, .opt='vp8')
-#save(vsd.nmf, file='./Results/nmf_k3_300.RData')
-#load("./Results/nmf_k3_300.RData")
+# t <- Sys.time()
+# subtype_estim.r <- nmf(subtype.vsd, 2:6, nrun=30, .opt='vp4')
+# save(subtype_estim.r, file='nmf_k_subtype.RData')
+# plot(subtype_estim.r)
+# consensusmap(subtype_estim.r,  labCol=NA, labRow=NA)
+# t2 <- Sys.time()
+# t2 - t
+###
+t <- Sys.time()
+subtype_vsd.nmf <- nmf(x=subtype.vsd, rank=4, nrun=300, .opt='vp4')
+save(subtype_vsd.nmf, file='CancerGenomics/Results/nmf_k4_subtype_300.RData')
+plot(subtype_vsd.nmf)
+consensusmap(subtype_vsd.nmf,  labCol=NA, labRow=NA)
+#load("./Results/nmf_k4_subtype_300.RData")
+t2 <- Sys.time()
+t2 - t
 
 # Get details about the meta-genes
-meta.genes <- extractFeatures(vsd.nmf)
-c1.genes <- rownames(ddr.vsd)[meta.genes[[1]]]
-c2.genes <- rownames(ddr.vsd)[meta.genes[[2]]]
-c3.genes <- rownames(ddr.vsd)[meta.genes[[3]]]
-write.table(paste0(c1.genes, collapse=", "), file="./Results/metagene_1_list.txt", 
+subtype_meta.genes <- extractFeatures(subtype_vsd.nmf)
+sub.c1.genes <- rownames(subtype.vsd)[subtype_meta.genes[[1]]]
+sub.c2.genes <- rownames(subtype.vsd)[subtype_meta.genes[[2]]]
+sub.c3.genes <- rownames(subtype.vsd)[subtype_meta.genes[[3]]]
+sub.c4.genes <- rownames(subtype.vsd)[subtype_meta.genes[[4]]]
+write.table(paste0(sub.c1.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_1_list.txt", 
             row.names=FALSE, col.names=FALSE, eol= "", quote = FALSE)
-write.table(paste0(c2.genes, collapse=", "), file="./Results/metagene_2_list.txt", 
+write.table(paste0(sub.c2.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_2_list.txt", 
             row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
-write.table(paste0(c3.genes, collapse=", "), file="./Results/metagene_3_list.txt", 
+write.table(paste0(sub.c3.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_3_list.txt", 
+            row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
+write.table(paste0(sub.c4.genes, collapse=", "), file="CancerGenomics/Results/subtype_metagene_4_list.txt", 
             row.names=FALSE, col.names=FALSE, eol= "",  quote = FALSE)
 
 #######################################
 ######### Cluster Assignments ######
 #######################################
 
-#Assign Clusters from k=3 NMF Clustering
-barcode$NMFC3 <- predict(vsd.nmf)
+#Assign Clusters from k=4 NMF Clustering
+barcode$NMFC3 <- predict(subtype_vsd.nmf)
 
-write.csv(barcode, file = "./Results/cluster_results.csv", row.names = FALSE)
+write.csv(barcode, file = "CancerGenomics/Results/subtype_cluster_results.csv", row.names = FALSE)
 
 #######################################
 ######### DESeq2 ######
 #######################################
 
 # Create DeSeq dataset
-ddr.desq <- DESeqDataSetFromMatrix(countData = ddr.mat,
+subtype.desq <- DESeqDataSetFromMatrix(countData = subtype.mat,
                                    colData = barcode,
                                    design = ~ NMFC3)
 
-
+# parallelization stuff
+# source("https://bioconductor.org/biocLite.R")
+# biocLite('MulticoreParam')
+#library('MulticoreParam')
 #Calculate Results
-ddr.desq <- DESeq(ddr.desq, parallel = TRUE, BPPARAM=MulticoreParam(4))
-#save(ddr.desq, file='./Results/ddr.desq.Rdata')
+subtype.desq <- DESeq(subtype.desq)#, parallel = TRUE, BPPARAM=MulticoreParam(4))
+#save(subtype.desq, file='CancerGenomics/Results/subtype.desq.Rdata')
 
-ddr.res <- results(ddr.desq)
-summary(ddr.res, alpha=.05)
+subtype.res <- results(subtype.desq)
+summary(subtype.res, alpha=.05)
 
 #######################################
 ######### Plots ######
 #######################################
-pdf("basis_map.pdf")
-basismap(vsd.nmf, subsetRow = TRUE)
+pdf("sub_basis_map.pdf")
+basismap(subtype_vsd.nmf, subsetRow = TRUE)
 dev.off()
-pdf("coef_map.pdf")
-coefmap(vsd.nmf)
+pdf("sub_coef_map.pdf")
+coefmap(subtype_vsd.nmf)
 dev.off()
-pdf("consensus_map.pdf")
-consensusmap(vsd.nmf)
+pdf("sub_consensus_map.pdf")
+consensusmap(subtype_vsd.nmf)
 dev.off()
 #######################################
