@@ -62,11 +62,13 @@ subtype.vsd <- varianceStabilizingTransformation(subtype.mat, blind = TRUE)
 
 #######################################
 # You prolly do not want to run the next couple of lines
-##subtype_estim.r <- nmf(subtype.vsd, 2:6, nrun=2)#, .opt='vp8')
-##Sys.time()
-##save(subtype_estim.r, file='nmf_k_subtype.RData')
-##plot(subtype_estim.r)
-##consensusmap(subtype_estim.r,  labCol=NA, labRow=NA)
+t <- Sys.time()
+subtype_estim.r <- nmf(subtype.vsd, 2:6, nrun=30, .opt='vp4')
+save(subtype_estim.r, file='nmf_k_subtype.RData')
+plot(subtype_estim.r)
+consensusmap(subtype_estim.r,  labCol=NA, labRow=NA)
+t2 <- Sys.time()
+t2 - t
 #subtype_vsd.nmf <- nmf(x=subtype.vsd, rank=3, nrun=300, .opt='vp8')
 #save(subtype_vsd.nmf, file='./Results/nmf_k3_subtype_300.RData')
 #load("./Results/nmf_k3_subtype_300.RData")
