@@ -137,7 +137,7 @@ str(clinical.fup)
 surv.vars <- c("bcr_patient_barcode", "days_to_death", "days_to_last_followup",
                "age_at_initial_pathologic_diagnosis", "race_list", "person_neoplasm_cancer_status",
                "ethnicity","neoplasm_histologic_grade", "radiation_therapy", "primary_therapy_outcome_success", "ethnicity", 
-               "plat_use", "plat_type", "tumor_tissue_site", "icd_o_3_histology", "primary_therapy_outcome_success", "has_new_tumor_events_information")
+               "plat_use", "plat_type")
 
 surv.drug.vars <- c("bcr_drug_barcode", "therapy_types", "drug_name", "regimen_indication", "plat_use", "plat_type")
 
